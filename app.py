@@ -62,7 +62,7 @@ except:
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
     # Placeholder for Stellantis Logo
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Stellantis_logo.svg/1200px-Stellantis_logo.svg.png", width=150)
+    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_908493-MLB105796278454_022026-F.webp", width=150)
 with col_title:
     st.title("⚙️ T200 Cylinder Head - Works Net Price (WNP)")
     st.caption("Strategic Cost Breakdown Analysis | R&D Engineering & Purchasing")
