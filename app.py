@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 # 1. LIVE CONNECTION
 # Ensure you use the "Publish to Web" -> "CSV" link from Google Sheets
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/YOUR_URL_HERE/pub?output=csv"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pubhtml?gid=827336911&single=true"
 
 @st.cache_data(ttl=60) # Refreshes data every minute
 def load_data():
