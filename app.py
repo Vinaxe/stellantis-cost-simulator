@@ -2,60 +2,109 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# 1. LIVE CONNECTION
-# Ensure you use the "Publish to Web" -> "CSV" link from Google Sheets
+# 1. LIVE CONNECTION (Replace with your CSV URL)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pubhtml?gid=827336911&single=true"
 
-@st.cache_data(ttl=60) # Refreshes data every minute
+@st.cache_data(ttl=60)
 def load_data():
     try:
-        return pd.read_csv(SHEET_URL)
+        df = pd.read_csv(SHEET_URL)
+        return df
     except:
-        # Fallback if URL is not set yet
-        return pd.DataFrame({"Category": ["Material", "Process", "Logistics"], "Value": [10, 5, 2]})
+        # Fallback dummy data for testing
+        return pd.DataFrame({
+            "Component": ["Aluminium", "Melting", "GDC", "Logistics"],
+            "Cost": [50.0, 10.0, 15.0, 5.0],
+            "Category": ["TMC", "TTC", "TTC", "Logistics"]
+        })
 
 df = load_data()
 
-# 2. APP LAYOUT
-st.set_page_config(page_title="Stellantis CBD Simulator", layout="wide")
-st.title("📊 T200 Cylinder Head - Live Cost Simulator")
+# 2. PAGE CONFIG & STELLANTIS BRANDING
+st.set_page_config(page_title="Stellantis WNP Simulator", layout="wide")
 
-# 3. INTERACTIVE SLIDERS
+# CSS to inject professional styling and background
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #00235e; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 3. HEADER: TITLE & IMAGE
+col_t1, col_t2 = st.columns([3, 1])
+with col_t1:
+    st.title("🚗 Works Net Price Simulator")
+    st.subheader("Project: Cylinder Head T200")
+with col_t2:
+    # Replace this URL with a real link to your T200 image
+    st.image("https://http2.mlstatic.com/D_Q_NP_2X_781277-MLB106116088816_022026-R.webp/150", caption="T200 Component", width=150)
+
+st.markdown("---")
+
+# 4. SIDEBAR: THE CONTROLS
 st.sidebar.header("🕹️ Production Variables")
-aluminum_price = st.sidebar.slider("Aluminum Price ($/kg)", 2.0, 5.0, 2.48)
-efficiency_gain = st.sidebar.slider("Process Optimization (%)", 0, 30, 0)
-scrap_rate = st.sidebar.slider("Scrap Rate (%)", 1.0, 10.0, 4.6)
+al_price = st.sidebar.slider("Aluminum ($/kg)", 2.0, 5.0, 2.48)
+efficiency = st.sidebar.slider("TTC Optimization (%)", 0, 30, 0)
+scrap = st.sidebar.slider("Scrap Rate (%)", 1.0, 10.0, 4.6)
 
-# 4. CALCULATION LOGIC (Connecting Sliders to Data)
-# We assume the first row of your sheet is 'Material'
-gross_weight = 21.0
-current_material_cost = (gross_weight * aluminum_price) * (1 + (scrap_rate/100))
+st.sidebar.markdown("---")
+st.sidebar.header("📈 Financial Strategy")
+markup = st.sidebar.slider("Markup ($)", 0.0, 20.0, 10.47)
+st.sidebar.caption("AC-DC / PROFIT")
 
-# We assume other rows are process steps
-# This logic reduces the process costs based on the 'efficiency' slider
-base_process_cost = 8.84 
-optimized_process_cost = base_process_cost * (1 - (efficiency_gain/100))
-logistics = 10.47
+# 5. CALCULATIONS
+# Logic: We filter the Google Sheet by "Category" to make the tables
+tmc_base = df[df['Category'] == 'TMC']['Cost'].sum() if 'Category' in df.columns else 45.20
+ttc_base = df[df['Category'] == 'TTC']['Cost'].sum() if 'Category' in df.columns else 8.84
+logistics_base = df[df['Category'] == 'Logistics']['Cost'].sum() if 'Category' in df.columns else 0.67
 
-total_price = current_material_cost + optimized_process_cost + logistics
+# Dynamic Adjustments
+current_tmc = (tmc_base / 2.48) * al_price * (1 + (scrap/100) - 0.046) 
+current_ttc = ttc_base * (1 - (efficiency/100))
+works_net = current_tmc + current_ttc + logistics_base + markup
 
-# 5. WATERFALL CHART (The Professional Choice)
+# 6. TOP METRIC
+st.metric(label="Works Net Price (WNP)", value=f"${works_net:.2f}", delta=f"${works_net - (tmc_base+ttc_base+logistics_base+10.47):.2f} vs Baseline")
+
+# 7. PROFESSIONAL TABLES
+st.markdown("### 📊 Cost Breakdown Tables")
+col_tab1, col_tab2 = st.columns(2)
+
+with col_tab1:
+    st.write("**Total Material Cost (TMC)**")
+    # Professional Styling for Table
+    tmc_df = df[df['Category'] == 'TMC'] if 'Category' in df.columns else df.head(2)
+    st.table(tmc_df)
+
+    st.write("**Total Transformation Cost (TTC)**")
+    ttc_df = df[df['Category'] == 'TTC'] if 'Category' in df.columns else df.tail(2)
+    st.table(ttc_df)
+
+with col_tab2:
+    st.write("**Logistics Cost**")
+    log_df = df[df['Category'] == 'Logistics'] if 'Category' in df.columns else df.iloc[[0]]
+    st.table(log_df)
+    
+    st.write("**Financial Markup**")
+    st.info(f"Target Markup (AC-DC/PROFIT): **${markup:.2f}**")
+
+# 8. PROFESSIONAL WATERFALL
+st.markdown("---")
+st.subheader("💡 Strategic Build-up Analysis")
+
 fig = go.Figure(go.Waterfall(
-    name = "CBD", orientation = "v",
-    measure = ["relative", "relative", "relative", "total"],
-    x = ["Material", "Transformation", "Logistics/Margin", "Final Price"],
+    name = "WNP", orientation = "v",
+    measure = ["relative", "relative", "relative", "relative", "total"],
+    x = ["TMC", "TTC", "Logistics", "Markup", "Works Net"],
     textposition = "outside",
-    text = [f"${current_material_cost:.2f}", f"${optimized_process_cost:.2f}", f"${logistics:.2f}", f"${total_price:.2f}"],
-    y = [current_material_cost, optimized_process_cost, logistics, total_price],
-    connector = {"line":{"color":"rgb(63, 63, 63)"}},
+    text = [f"${current_tmc:.2f}", f"${current_ttc:.2f}", f"${logistics_base:.2f}", f"${markup:.2f}", f"Total: ${works_net:.2f}"],
+    y = [current_tmc, current_ttc, logistics_base, markup, works_net],
+    connector = {"line":{"color":"#00235e", "width": 2}},
+    decreasing = {"marker":{"color":"#e74c3c"}},
+    increasing = {"marker":{"color":"#2ecc71"}},
+    totals = {"marker":{"color":"#00235e"}}
 ))
 
-fig.update_layout(title = "Cost Build-up (Waterfall Analysis)", showlegend = False)
-
-# 6. DISPLAY
-col1, col2 = st.columns([1, 2])
-with col1:
-    st.metric("Final Piece Price", f"${total_price:.2f}", f"{-efficiency_gain}% Process Cost")
-    st.dataframe(df) # Shows your raw Google Sheet data
-with col2:
-    st.plotly_chart(fig, use_container_width=True)
+fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+st.plotly_chart(fig, use_container_width=True)
