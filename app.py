@@ -5,126 +5,138 @@ import plotly.graph_objects as go
 # --- 1. CONFIG & BRANDING ---
 st.set_page_config(page_title="Stellantis | T200 Cost Simulator", layout="wide")
 
-# Stellantis Corporate Blue & Professional Styling
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
     div[data-testid="stMetricValue"] { color: #00235e; font-size: 32px; font-weight: bold; }
-    .stTable { border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. DATA LOADING & CLEANING ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pub?gid=1847821866&single=true&output=csv"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/YOUR_URL_HERE/pub?output=csv"
 
 def clean_currency(value):
-    """Converts strings like '$37,61' or '52,17%' to floats like 37.61 or 0.5217"""
     if pd.isna(value) or value == "": return 0.0
     s = str(value).replace('$', '').replace('%', '').replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
-    try:
-        return float(s)
-    except:
-        return 0.0
+    try: return float(s)
+    except: return 0.0
 
 @st.cache_data(ttl=60)
 def load_and_parse():
-    # In your case, we use the uploaded file logic for the live app
     df_raw = pd.read_csv(SHEET_URL, header=None)
     
-    # Extracting Key Variables from your specific rows
-    gross_weight = clean_currency(df_raw.iloc[1, 1])
+    # Weights from Rows 1 & 2
+    gross_w = clean_currency(df_raw.iloc[1, 1])
+    net_w = clean_currency(df_raw.iloc[2, 1])
     
-    # 1. TMC Table (Rows 7 to 11)
+    # TMC (Materials)
     tmc_df = df_raw.iloc[7:12, [0, 1, 2]]
     tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
     
-    # 2. TTC Table (Rows 17 to 22)
-    ttc_df = df_raw.iloc[17:23, [0, 1, 10]] # Process, Cycle Time, Cost
+    # TTC (Transformation)
+    ttc_df = df_raw.iloc[17:23, [0, 1, 10]] 
     ttc_df.columns = ["PROCESS", "CYCLE TIME", "COST"]
     
-    # 3. Logistics (Rows 26 to 28)
+    # Logistics
     log_df = df_raw.iloc[26:29, [0, 1]]
-    log_df.columns = ["ÍTEM", "COST"]
+    log_df.columns = ["ITEM", "COST"]
 
-    return gross_weight, tmc_df, ttc_df, log_df
+    return gross_w, net_w, tmc_df, ttc_df, log_df
 
 try:
-    g_weight, tmc_raw, ttc_raw, log_raw = load_and_parse()
-    # Convert numeric columns for calculation
+    g_w, n_w, tmc_raw, ttc_raw, log_raw = load_and_parse()
     tmc_raw["COST($)"] = tmc_raw["COST($)"].apply(clean_currency)
     ttc_raw["COST"] = ttc_raw["COST"].apply(clean_currency)
     log_raw["COST"] = log_raw["COST"].apply(clean_currency)
 except:
-    st.error("Connection Error: Please check the Google Sheet URL.")
+    st.error("Connection Error: Check URL")
     st.stop()
 
-# --- 3. HEADER ---
+# --- 3. HEADER & WEIGHT DATA ---
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
-    # Placeholder for Stellantis Logo
-    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_908493-MLB105796278454_022026-F.webp", width=150)
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Stellantis_logo.svg/1200px-Stellantis_logo.svg.png", width=150)
+    st.write(f"**Gross Weight:** {g_w} kg")
+    st.write(f"**Net Weight:** {n_w} kg")
+
 with col_title:
     st.title("⚙️ T200 Cylinder Head - Works Net Price (WNP)")
-    st.caption("Strategic Cost Breakdown Analysis | R&D Engineering & Purchasing")
+    st.caption("Strategic Cost Breakdown Analysis")
 
 st.markdown("---")
 
 # --- 4. SIDEBAR SIMULATION ---
-st.sidebar.header("🕹️ Market Variables")
-al_price = st.sidebar.slider("Aluminum Market Price ($/kg)", 1.50, 5.00, 2.48)
-scrap = st.sidebar.slider("Process Scrap Rate (%)", 0.0, 10.0, 4.6)
+st.sidebar.header("🕹️ Production Variables")
 
-st.sidebar.header("⚙️ Operational Efficiency")
-efficiency = st.sidebar.slider("TTC Optimization (%)", 0, 30, 0)
+# Logic Check: Initial Price/kg = Aluminum Cost / Gross Weight
+initial_al_cost = tmc_raw.iloc[0, 1] 
+initial_price_kg = initial_al_cost / g_w if g_w > 0 else 0.0
+
+al_price_kg = st.sidebar.slider("Aluminum Price ($/kg)", 1.00, 6.00, initial_price_kg)
+# Scrap embedded in OEE (affects Cycle Time/TTC)
+scrap_oee = st.sidebar.slider("Scrap Rate / OEE Loss (%)", 0.0, 15.0, 4.6)
+efficiency = st.sidebar.slider("Process Optimization (%)", 0, 30, 0)
 
 st.sidebar.header("📈 Financial Strategy")
-markup_slider = st.sidebar.slider("Markup / Profit ($)", 0.0, 20.0, 10.47)
-st.sidebar.caption("AC-DC / PROFIT Strategy")
+# Markup as a Factor (1.0 to 2.0)
+markup_factor = st.sidebar.slider("Markup Factor (AC-DC/PROFIT)", 1.0, 2.0, 1.17, step=0.01)
 
 # --- 5. DYNAMIC CALCULATION ---
-# TMC Logic (Adjusting based on Al Price slider)
-# Your sheet uses $37,61 for 2.48 $/kg. We scale it.
-aluminum_cost_base = tmc_raw.iloc[0, 1] 
+
+# A. New TMC based on Price/kg Slider
+current_al_cost = al_price_kg * g_w
 others_tmc = tmc_raw.iloc[1:, 1].sum()
-current_tmc = (aluminum_cost_base / 2.48 * al_price) * (1 + (scrap/100) - 0.046) + others_tmc
+total_tmc = current_al_cost + others_tmc
 
-# TTC Logic
-current_ttc = ttc_raw["COST"].sum() * (1 - (efficiency/100))
+# B. New TTC (Scrap increases Cycle Time, Optimization reduces it)
+base_ttc = ttc_raw["COST"].sum()
+current_ttc = base_ttc * (1 + (scrap_oee/100)) * (1 - (efficiency/100))
 
-# Logistics
-current_log = log_raw["COST"].sum()
+# C. Logistics
+total_log = log_raw["COST"].sum()
 
-# Final Price
-final_wnp = current_tmc + current_ttc + current_log + markup_slider
+# D. TOTAL COST (Before Markup)
+sum_total_cost = total_tmc + current_ttc + total_log
 
-# --- 6. TOP METRIC ---
-st.metric("Works Net Price (WNP)", f"${final_wnp:.2f}", delta=f"${final_wnp - 72.09:.2f} vs Target")
+# E. WORKS NET (Total Cost * Multiplier)
+works_net = sum_total_cost * markup_factor
 
-# --- 7. TABLES ---
+# --- 6. TOP METRICS ---
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Total TMC", f"${total_tmc:.2f}")
+m2.metric("Total TTC", f"${current_ttc:.2f}")
+m3.metric("Logistics", f"${total_log:.2f}")
+m4.metric("Total Cost", f"${sum_total_cost:.2f}")
+
+st.markdown("---")
+st.subheader(f"Works Net Price (WNP): ${works_net:.2f}")
+st.caption(f"Calculation: Total Cost (${sum_total_cost:.2f}) x Markup Factor ({markup_factor})")
+
+# --- 7. TABLES & WATERFALL ---
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("📦 Total Material Cost (TMC)")
-    st.table(tmc_raw.style.format({"COST($)": "${:.2f}"}))
+    st.subheader("📦 TMC Breakdown")
+    # Show dynamic Aluminum cost
+    tmc_display = tmc_raw.copy()
+    tmc_display.iloc[0, 1] = current_al_cost
+    st.table(tmc_display.style.format({"COST($)": "${:.2f}"}))
     
-    st.subheader("⚙️ Transformation Cost (TTC)")
+    st.subheader("⚙️ TTC Breakdown")
     st.table(ttc_raw.style.format({"COST": "${:.2f}"}))
 
 with col2:
-    st.subheader("🚚 Logistics & Packaging")
-    st.table(log_raw.style.format({"COST": "${:.2f}"}))
+    # Waterfall including the Markup Factor
+    profit_value = works_net - sum_total_cost
     
-    # --- WATERFALL CHART ---
-    st.subheader("💡 Strategic Build-up")
     fig = go.Figure(go.Waterfall(
         orientation = "v",
         measure = ["relative", "relative", "relative", "relative", "total"],
-        x = ["TMC", "TTC", "Logistics", "Markup", "Works Net"],
-        y = [current_tmc, current_ttc, current_log, markup_slider, final_wnp],
+        x = ["TMC", "TTC", "Logistics", "Markup (Profit)", "Works Net"],
+        y = [total_tmc, current_ttc, total_log, profit_value, works_net],
         connector = {"line":{"color":"#00235e", "width": 2}},
         decreasing = {"marker":{"color":"#e74c3c"}},
         increasing = {"marker":{"color":"#2ecc71"}},
         totals = {"marker":{"color":"#00235e"}}
     ))
-    fig.update_layout(height=400, margin=dict(l=20, r=20, t=20, b=20))
     st.plotly_chart(fig, use_container_width=True)
