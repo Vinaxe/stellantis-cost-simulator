@@ -2,17 +2,17 @@ import streamlit as st
 
 st.set_page_config(page_title="Stellantis Cost Dashboard", layout="wide")
 
-st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Stellantis_logo.svg/1200px-Stellantis_logo.svg.png", width=200)
+st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Stellantis.svg/960px-Stellantis.svg.png", width=200)
 
 st.title("🚀 Global Purchasing & Engineering Cost Simulator")
 
 st.markdown("""
 ### Project Overview
-This dashboard provides real-time **Works Net Price (WNP)** simulations for the T200 platform. 
+This dashboard provides real-time **Works Net Price (WNP)** simulations for Stellantis. 
 Use the sidebar on the left to navigate between different vehicle components:
 
-* **Cylinder Head:** GDC process analysis and Aluminum sensitivity.
-* **Suspension Control Arm:** Forging/Stamping cost structures.
+* **Cylinder Head:**
+* **Suspension Control Arm:**  
 
 **Key Objectives:**
 1. Provide transparency into **TMC** and **TTC** breakdowns.
