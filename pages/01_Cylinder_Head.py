@@ -62,7 +62,7 @@ st.markdown("---")
 # --- 4. SIDEBAR ---
 st.sidebar.header("🕹️ Parameters")
 al_price = st.sidebar.slider("Aluminum ($/kg)", 1.0, 6.0, 1.79) # Default based on $37.61/21kg
-scrap_oee = st.sidebar.slider("Scrap/OEE Impact (%)", 0.0, 15.0, 4.6)
+scrap_oee = st.sidebar.slider("Scrap/OEE Impact (%)", 0.0, 15.0, 0)
 markup = st.sidebar.slider("Markup Factor", 1.0, 2.0, 1.17, step=0.01)
 
 # --- 5. DYNAMIC CALCULATION (Bottom-Up Sum) ---
