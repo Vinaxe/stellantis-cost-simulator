@@ -55,7 +55,7 @@ with col_title:
     st.title("⚙️ T200 Cylinder Head - WNP")
     st.write(f"**Gross Weight:** {g_w} kg | **Net Weight:** {n_w} kg")
 with col_img:
-    st.image("https://http2.mlstatic.com/D_NQ_NP_802214-MLB77654495713_072024-O-cabecote-do-motor-t-200-10-turbo-trs-cilindros-2022-2023.webp", width=130, caption="T200 Part")
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Stellantis.svg/960px-Stellantis.svg.png", width=130, caption="T200 Part")
 
 st.markdown("---")
 
