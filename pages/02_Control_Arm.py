@@ -84,7 +84,7 @@ init_steel = tmc_raw.iloc[4, 1]
 steel_price_mod = st.sidebar.slider("Steel Scrap Variation (%)", -20, 50, 0)
 
 st.sidebar.header("⚙️ Process Efficiency")
-scrap_rate = st.sidebar.slider("Foundry Scrap (%)", 0.0, 10.0, 4.0)
+scrap_rate = st.sidebar.slider("Foundry Scrap (%)", 0.0, 10.0, 0.0)
 
 st.sidebar.header("📈 Financials")
 markup = st.sidebar.slider("Markup Multiplier", 1.0, 1.5, 1.17, step=0.01)
