@@ -37,7 +37,7 @@ g_w, n_w, tmc_base, ttc_base, log_base = load_data()
 col_logo, col_text, col_part = st.columns([1, 2, 1])
 
 with col_logo:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Stellantis_logo.svg/1200px-Stellantis_logo.svg.png", width=120)
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Stellantis.svg/960px-Stellantis.svg.png", width=120)
 
 with col_text:
     st.title("⚙️ Cylinder Head T200")
