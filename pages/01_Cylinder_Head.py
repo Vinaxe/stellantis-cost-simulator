@@ -29,7 +29,7 @@ def load_t200_data():
     
     # TMC (Rows 7 to 11)
     tmc_df = df_raw.iloc[7:12, [0, 1]].copy()
-    tmc_df.columns = ["MATERIALS", "COST"]
+    tmc_df.columns = ["MATERIALS", "COST","PP SENSIVITY%"]
     tmc_df["COST"] = tmc_df["COST"].apply(clean_currency)
     
     # TTC (Rows 17 to 22)
