@@ -12,7 +12,7 @@ st.markdown("""
 
 # --- 2. DATA LOADING & CLEANING ---
 # IMPORTANT: Put your CONTROL ARM Google Sheet CSV link here!
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/YOUR_CONTROL_ARM_URL/pub?output=csv"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pub?gid=1638279052&single=true&output=csv"
 
 def clean_currency(value):
     if pd.isna(value) or value == "": return 0.0
@@ -64,7 +64,7 @@ except Exception as e:
 # --- 3. HEADER & WEIGHT DATA ---
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Stellantis_logo.svg/1200px-Stellantis_logo.svg.png", width=150)
+    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_855634-MLB75676618058_042024-F.webp", width=150)
     st.write(f"**Gross Weight:** {g_w} kg")
     st.write(f"**Net Weight:** {n_w} kg")
 
