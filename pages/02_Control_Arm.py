@@ -29,7 +29,7 @@ def load_and_parse():
     net_w = clean_currency(df_raw.iloc[2, 1])
     
     # TMC - Rows 7 to 12
-    tmc_df = df_raw.iloc[7:13, [0, 1, 2]]
+    tmc_df = df_raw.iloc[7:14, [0, 1, 2]]
     tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
     
     # TTC - Rows 18 to 23 (6 processes)
