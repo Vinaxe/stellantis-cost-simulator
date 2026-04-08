@@ -2,10 +2,119 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- 1. CONFIG ---
-st.set_page_config(page_title="Stellantis | T200 Simulator", layout="wide")
+# --- 1. CONFIG & BRANDING ---
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    div[data-testid="stMetricValue"] { color: #00235e; font-size: 32px; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- 2. DATA LOADING ---
+# --- 2. DATA LOADING & CLEANING ---
+# IMPORTANT: Put your CONTROL ARM Google Sheet CSV link here!
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pub?gid=1638279052&single=true&output=csv"
+
+def clean_currency(value):
+    if pd.isna(value) or value == "": return 0.0
+    s = str(value).replace('$', '').replace('%', '').replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+    try: return float(s)
+    except: return 0.0
+
+@st.cache_data(ttl=60)
+def load_and_parse():
+    # Reading the file (we simulate it locally, but you will use the URL)
+    df_raw = pd.read_csv(SHEET_URL, header=None)
+    
+    # Weights (Rows 1 and 2)
+    gross_w = clean_currency(df_raw.iloc[1, 1])
+    net_w = clean_currency(df_raw.iloc[2, 1])
+    
+    # TMC - Control Arm starts on Row 6 and goes to 11
+    tmc_df = df_raw.iloc[6:12, [0, 1, 2]]
+    tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
+    
+    # TTC - Control Arm processes start on Row 15 and go to 20
+    ttc_df = df_raw.iloc[15:21, 0:11] 
+    ttc_df.columns = [
+        "PROCESS", "CYCLE TIME", "HEADCOUNT", "DL RATE", 
+        "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"
+    ]
+    
+    # Logistics - Control Arm logistics are on Rows 23 to 25
+    log_df = df_raw.iloc[23:26, [0, 1]]
+    log_df.columns = ["ITEM", "COST"]
+
+    return gross_w, net_w, tmc_df, ttc_df, log_df
+
+try:
+    g_w, n_w, tmc_raw, ttc_raw, log_raw = load_and_parse()
+    
+    # Clean formatting
+    tmc_raw["COST($)"] = tmc_raw["COST($)"].apply(clean_currency)
+    
+    rate_columns = ["DL RATE", "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"]
+    for col in rate_columns:
+        ttc_raw[col] = ttc_raw[col].apply(clean_currency)
+        
+    log_raw["COST"] = log_raw["COST"].apply(clean_currency)
+except Exception as e:
+    st.error("Connection Error: Please check the Control Arm Google Sheet URL.")
+    st.stop()
+
+# --- 3. HEADER & WEIGHT DATA ---
+col_logo, col_title = st.columns([1, 4])
+with col_logo:
+    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_855634-MLB75676618058_042024-F.webp", width=150)
+    st.write(f"**Gross Weight:** {g_w} kg")
+    st.write(f"**Net Weight:** {n_w} kg")
+
+with col_title:
+    st.title("⚙️ Lower Control Arm - Works Net Price")
+    st.caption("Strategic Cost Breakdown Analysis | Iron Casting & Assembly")
+
+st.markdown("---")
+
+# --- 4. SIDEBAR SIMULATION ---
+st.sidebar.header("🕹️ Material Variables")
+
+# The biggest cost is the Ball Joint. Let's make a slider for it.
+initial_ball_joint = tmc_raw.iloc[0, 1] 
+ball_joint_cost = st.sidebar.slider("Ball Joint Assembly ($)", 10.0, 25.0, float(initial_ball_joint))
+
+# The second biggest metal cost is Steel Scrap. We use a multiplier.
+steel_scrap_factor = st.sidebar.slider("Steel Scrap Price Inflation (%)", -20, 50, 0)
+
+st.sidebar.header("⚙️ Operational Variables")
+scrap_oee = st.sidebar.slider("Foundry Scrap / OEE Loss (%)", 0.0, 15.0, 5.0)
+efficiency = st.sidebar.slider("Machining Optimization (%)", 0, 30, 0)
+
+st.sidebar.header("📈 Financial Strategy")
+markup_factor = st.sidebar.slider("Markup Factor (AC-DC/PROFIT)", 1.0, 2.0, 1.17, step=0.01)
+
+# --- 5. DYNAMIC CALCULATION ---
+# TMC Logic (Updating Ball Joint and Steel Scrap)
+tmc_dynamic = tmc_raw.copy()
+tmc_dynamic.iloc[0, 1] = ball_joint_cost # Update Ball Joint
+tmc_dynamic.iloc[4, 1] = tmc_dynamic.iloc[4, 1] * (1 + (steel_scrap_factor/100)) # Update Steel Scrap
+
+total_tmc = tmc_dynamic["COST($)"].sum()
+
+# TTC Logic
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+
+# --- 1. CONFIG & BRANDING ---
+st.set_page_config(page_title="Stellantis | T200 Cost Simulator", layout="wide")
+
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    div[data-testid="stMetricValue"] { color: #00235e; font-size: 32px; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. DATA LOADING & CLEANING ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pub?gid=1847821866&single=true&output=csv"
 
 def clean_currency(value):
@@ -15,72 +124,126 @@ def clean_currency(value):
     except: return 0.0
 
 @st.cache_data(ttl=60)
-def load_data():
+def load_and_parse():
     df_raw = pd.read_csv(SHEET_URL, header=None)
-    g_w = clean_currency(df_raw.iloc[1, 1])
-    n_w = clean_currency(df_raw.iloc[2, 1])
-    tmc_df = df_raw.iloc[7:12, [0, 1]].copy()
-    tmc_df.columns = ["MATERIALS", "COST"]
-    tmc_df["COST"] = tmc_df["COST"].apply(clean_currency)
-    ttc_df = df_raw.iloc[17:23, 0:11].copy()
-    ttc_df.columns = ["PROCESS", "CT", "HC", "DL_R", "T_DL", "IL_R", "OH", "FC", "VC", "T_RATE", "COST"]
-    for col in ["CT", "T_RATE", "COST"]:
-        ttc_df[col] = ttc_df[col].apply(clean_currency)
-    log_df = df_raw.iloc[26:29, [0, 1]].copy()
+    
+    # Weights
+    gross_w = clean_currency(df_raw.iloc[1, 1])
+    net_w = clean_currency(df_raw.iloc[2, 1])
+    
+    # TMC
+    tmc_df = df_raw.iloc[7:12, [0, 1, 2]]
+    tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
+    
+    # TTC - NOW GRABBING ALL 11 RATE COLUMNS
+    ttc_df = df_raw.iloc[17:23, 0:11] 
+    ttc_df.columns = [
+        "PROCESS", "CYCLE TIME", "HEADCOUNT", "DL RATE", 
+        "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"
+    ]
+    
+    # Logistics
+    log_df = df_raw.iloc[26:29, [0, 1]]
     log_df.columns = ["ITEM", "COST"]
-    log_df["COST"] = log_df["COST"].apply(clean_currency)
-    return g_w, n_w, tmc_df, ttc_df, log_df
 
-g_w, n_w, tmc_base, ttc_base, log_base = load_data()
+    return gross_w, net_w, tmc_df, ttc_df, log_df
 
-# --- 3. HEADER WITH PART IMAGE ---
-col_logo, col_text, col_part = st.columns([1, 2, 1])
+try:
+    g_w, n_w, tmc_raw, ttc_raw, log_raw = load_and_parse()
+    
+    # Clean currency for Math and Display
+    tmc_raw["COST($)"] = tmc_raw["COST($)"].apply(clean_currency)
+    
+    # Clean all the specific rate columns in TTC
+    rate_columns = ["DL RATE", "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"]
+    for col in rate_columns:
+        ttc_raw[col] = ttc_raw[col].apply(clean_currency)
+        
+    log_raw["COST"] = log_raw["COST"].apply(clean_currency)
+except:
+    st.error("Connection Error: Check URL")
+    st.stop()
 
+# --- 3. HEADER & WEIGHT DATA ---
+col_logo, col_title = st.columns([1, 4])
 with col_logo:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Stellantis.svg/960px-Stellantis.svg.png", width=120)
+    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_908493-MLB105796278454_022026-F.webp", width=150)
+    st.write(f"**Gross Weight:** {g_w} kg")
+    st.write(f"**Net Weight:** {n_w} kg")
 
-with col_text:
-    st.title("⚙️ Cylinder Head T200")
-    st.write(f"**Gross:** {g_w} kg | **Net:** {n_w} kg")
-    st.caption("Bottom-Up Works Net Price Simulation")
+with col_title:
+    st.title("⚙️ T200 Cylinder Head - Works Net Price (WNP)")
+    st.caption("Strategic Cost Breakdown Analysis")
 
-with col_part:
-    # This is the T200 Part Image
-    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_908493-MLB105796278454_022026-F.webp", caption="Part: T200 GDC Head", width=140)
+st.markdown("---")
 
-st.divider()
+# --- 4. SIDEBAR SIMULATION ---
+st.sidebar.header("🕹️ Production Variables")
 
-# --- 4. SIDEBAR & LOGIC ---
-st.sidebar.header("🕹️ Simulation")
-al_price = st.sidebar.slider("Aluminum ($/kg)", 1.5, 5.0, 2.68)
-scrap_rate = st.sidebar.slider("Scrap/OEE Impact (%)", 0.0, 15.0, 4.6)
-markup = st.sidebar.slider("Markup Factor", 1.0, 1.5, 1.17, step=0.01)
+initial_al_cost = tmc_raw.iloc[0, 1] 
+initial_price_kg = initial_al_cost / g_w if g_w > 0 else 0.0
 
-# Sum Logic Fix
-tmc_dyn = tmc_base.copy()
-tmc_dyn.iloc[0, 1] = al_price * g_w 
-total_tmc = tmc_dyn["COST"].sum()
+al_price_kg = st.sidebar.slider("Aluminum Price ($/kg)", 1.00, 6.00, initial_price_kg)
+scrap_oee = st.sidebar.slider("Scrap Rate / OEE Loss (%)", 0.0, 15.0, 4.6)
+efficiency = st.sidebar.slider("Process Optimization (%)", 0, 30, 0)
 
-ttc_dyn = ttc_base.copy()
-ttc_dyn["COST"] = ttc_dyn["CT"] * ttc_dyn["T_RATE"] * (1 + (scrap_rate/100))
-total_ttc = ttc_dyn["COST"].sum()
+st.sidebar.header("📈 Financial Strategy")
+markup_factor = st.sidebar.slider("Markup Factor (AC-DC/PROFIT)", 1.0, 2.0, 1.17, step=0.01)
 
-total_log = log_base["COST"].sum()
-total_cost = total_tmc + total_ttc + total_log
-wnp = total_cost * markup
+# --- 5. DYNAMIC CALCULATION ---
+current_al_cost = al_price_kg * g_w
+others_tmc = tmc_raw.iloc[1:, 1].sum()
+total_tmc = current_al_cost + others_tmc
 
-# --- 5. TOP METRICS ---
+base_ttc = ttc_raw["COST"].sum()
+current_ttc = base_ttc * (1 + (scrap_oee/100)) * (1 - (efficiency/100))
+
+total_log = log_raw["COST"].sum()
+
+sum_total_cost = total_tmc + current_ttc + total_log
+works_net = sum_total_cost * markup_factor
+
+# --- 6. TOP METRICS ---
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Total TMC", f"${total_tmc:.2f}")
-m2.metric("Total TTC", f"${total_ttc:.2f}")
+m2.metric("Total TTC", f"${current_ttc:.2f}")
 m3.metric("Logistics", f"${total_log:.2f}")
-m4.metric("Works Net Price", f"${wnp:.2f}")
+m4.metric("Total Cost", f"${sum_total_cost:.2f}")
 
-st.subheader("Transformation Table")
-st.dataframe(ttc_dyn.style.format({c: "${:.2f}" for c in ["T_RATE", "COST"]}), use_container_width=True)
+st.markdown("---")
+st.subheader(f"Works Net Price (WNP): ${works_net:.2f}")
+st.caption(f"Calculation: Total Cost (${sum_total_cost:.2f}) x Markup Factor ({markup_factor})")
 
-c1, c2 = st.columns(2)
-with c1:
-    st.table(tmc_dyn.style.format({"COST": "${:.2f}"}))
-with c2:
-    st.table(log_base.style.format({"COST": "${:.2f}"}))
+# --- 7. TABLES & WATERFALL ---
+st.subheader("⚙️ TTC Breakdown (Transformation Rates)")
+# Create a dictionary to format all 8 rate columns as currency automatically
+ttc_formatting = {col: "${:.2f}" for col in ["DL RATE", "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"]}
+# Use st.dataframe instead of st.table so you can scroll horizontally through all 11 columns
+st.dataframe(ttc_raw.style.format(ttc_formatting), use_container_width=True)
+
+st.markdown("---")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("📦 TMC Breakdown")
+    tmc_display = tmc_raw.copy()
+    tmc_display.iloc[0, 1] = current_al_cost
+    st.table(tmc_display.style.format({"COST($)": "${:.2f}"}))
+    
+    st.subheader("🚚 Logistics Breakdown")
+    st.table(log_raw.style.format({"COST": "${:.2f}"}))
+
+with col2:
+    profit_value = works_net - sum_total_cost
+    
+    fig = go.Figure(go.Waterfall(
+        orientation = "v",
+        measure = ["relative", "relative", "relative", "relative", "total"],
+        x = ["TMC", "TTC", "Logistics", "Markup (Profit)", "Works Net"],
+        y = [total_tmc, current_ttc, total_log, profit_value, works_net],
+        connector = {"line":{"color":"#00235e", "width": 2}},
+        decreasing = {"marker":{"color":"#e74c3c"}},
+        increasing = {"marker":{"color":"#2ecc71"}},
+        totals = {"marker":{"color":"#00235e"}}
+    ))
+    st.plotly_chart(fig, use_container_width=True)
