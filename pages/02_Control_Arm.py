@@ -11,7 +11,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. DATA LOADING & CLEANING ---
-# IMPORTANT: Put your CONTROL ARM Google Sheet CSV link here!
+# IMPORTANT: Replace this with your Google Sheet URL for the Control Arm tab
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pub?gid=1638279052&single=true&output=csv"
 
 def clean_currency(value):
@@ -22,26 +22,25 @@ def clean_currency(value):
 
 @st.cache_data(ttl=60)
 def load_and_parse():
-    # Reading the file (we simulate it locally, but you will use the URL)
     df_raw = pd.read_csv(SHEET_URL, header=None)
     
-    # Weights (Rows 1 and 2)
+    # Weights - Row 1 and 2
     gross_w = clean_currency(df_raw.iloc[1, 1])
     net_w = clean_currency(df_raw.iloc[2, 1])
     
-    # TMC - Control Arm starts on Row 6 and goes to 11
-    tmc_df = df_raw.iloc[6:12, [0, 1, 2]]
+    # TMC - Rows 7 to 12
+    tmc_df = df_raw.iloc[7:13, [0, 1, 2]]
     tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
     
-    # TTC - Control Arm processes start on Row 15 and go to 20
-    ttc_df = df_raw.iloc[15:21, 0:11] 
+    # TTC - Rows 18 to 23 (6 processes)
+    ttc_df = df_raw.iloc[18:24, 0:11] 
     ttc_df.columns = [
         "PROCESS", "CYCLE TIME", "HEADCOUNT", "DL RATE", 
         "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"
     ]
     
-    # Logistics - Control Arm logistics are on Rows 23 to 25
-    log_df = df_raw.iloc[23:26, [0, 1]]
+    # Logistics - Rows 26 to 28
+    log_df = df_raw.iloc[26:29, [0, 1]]
     log_df.columns = ["ITEM", "COST"]
 
     return gross_w, net_w, tmc_df, ttc_df, log_df
@@ -49,19 +48,18 @@ def load_and_parse():
 try:
     g_w, n_w, tmc_raw, ttc_raw, log_raw = load_and_parse()
     
-    # Clean formatting
+    # Cleaning numeric values
     tmc_raw["COST($)"] = tmc_raw["COST($)"].apply(clean_currency)
-    
     rate_columns = ["DL RATE", "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"]
     for col in rate_columns:
         ttc_raw[col] = ttc_raw[col].apply(clean_currency)
-        
     log_raw["COST"] = log_raw["COST"].apply(clean_currency)
+    
 except Exception as e:
-    st.error("Connection Error: Please check the Control Arm Google Sheet URL.")
+    st.error(f"Error: {e}. Check if the Google Sheet matches the CSV structure.")
     st.stop()
 
-# --- 3. HEADER & WEIGHT DATA ---
+# --- 3. HEADER ---
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
     st.image("https://http2.mlstatic.com/D_NQ_NP_2X_855634-MLB75676618058_042024-F.webp", width=150)
@@ -69,83 +67,66 @@ with col_logo:
     st.write(f"**Net Weight:** {n_w} kg")
 
 with col_title:
-    st.title("⚙️ Lower Control Arm - Works Net Price")
-    st.caption("Strategic Cost Breakdown Analysis | Iron Casting & Assembly")
+    st.title("⚙️ Lower Control Arm - WNP Simulator")
+    st.caption("Assembly & Foundry Breakdown")
 
 st.markdown("---")
 
-# --- 4. SIDEBAR SIMULATION ---
-st.sidebar.header("🕹️ Material Variables")
+# --- 4. SIDEBAR ---
+st.sidebar.header("🕹️ Cost Drivers")
 
-# The biggest cost is the Ball Joint. Let's make a slider for it.
-initial_ball_joint = tmc_raw.iloc[0, 1] 
-ball_joint_cost = st.sidebar.slider("Ball Joint Assembly ($)", 10.0, 25.0, float(initial_ball_joint))
+# Ball Joint Cost (Main driver in Row 7)
+init_ball_joint = tmc_raw.iloc[0, 1]
+ball_joint = st.sidebar.slider("Ball Joint Assy Cost ($)", 10.0, 30.0, float(init_ball_joint))
 
-# The second biggest metal cost is Steel Scrap. We use a multiplier.
-steel_scrap_factor = st.sidebar.slider("Steel Scrap Price Inflation (%)", -20, 50, 0)
+# Steel Scrap Sensitivity (Row 11)
+init_steel = tmc_raw.iloc[4, 1]
+steel_price_mod = st.sidebar.slider("Steel Scrap Variation (%)", -20, 50, 0)
 
-st.sidebar.header("⚙️ Operational Variables")
-scrap_oee = st.sidebar.slider("Foundry Scrap / OEE Loss (%)", 0.0, 15.0, 5.0)
-efficiency = st.sidebar.slider("Machining Optimization (%)", 0, 30, 0)
+st.sidebar.header("⚙️ Process Efficiency")
+scrap_rate = st.sidebar.slider("Foundry Scrap (%)", 0.0, 10.0, 4.0)
 
-st.sidebar.header("📈 Financial Strategy")
-markup_factor = st.sidebar.slider("Markup Factor (AC-DC/PROFIT)", 1.0, 2.0, 1.17, step=0.01)
+st.sidebar.header("📈 Financials")
+markup = st.sidebar.slider("Markup Multiplier", 1.0, 1.5, 1.17, step=0.01)
 
-# --- 5. DYNAMIC CALCULATION ---
-# TMC Logic (Updating Ball Joint and Steel Scrap)
+# --- 5. CALCULATIONS ---
 tmc_dynamic = tmc_raw.copy()
-tmc_dynamic.iloc[0, 1] = ball_joint_cost # Update Ball Joint
-tmc_dynamic.iloc[4, 1] = tmc_dynamic.iloc[4, 1] * (1 + (steel_scrap_factor/100)) # Update Steel Scrap
-
+tmc_dynamic.iloc[0, 1] = ball_joint # Update Ball Joint
+tmc_dynamic.iloc[4, 1] = init_steel * (1 + (steel_price_mod/100)) # Update Steel
 total_tmc = tmc_dynamic["COST($)"].sum()
 
-# TTC Logic
 base_ttc = ttc_raw["COST"].sum()
-current_ttc = base_ttc * (1 + (scrap_oee/100)) * (1 - (efficiency/100))
+current_ttc = base_ttc * (1 + (scrap_rate/100))
 
-# Logistics
 total_log = log_raw["COST"].sum()
+total_cost = total_tmc + current_ttc + total_log
+wnp = total_cost * markup
 
-sum_total_cost = total_tmc + current_ttc + total_log
-works_net = sum_total_cost * markup_factor
-
-# --- 6. TOP METRICS ---
+# --- 6. DISPLAY ---
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Total TMC", f"${total_tmc:.2f}")
 m2.metric("Total TTC", f"${current_ttc:.2f}")
 m3.metric("Logistics", f"${total_log:.2f}")
-m4.metric("Total Cost", f"${sum_total_cost:.2f}")
+m4.metric("Total Cost", f"${total_cost:.2f}")
 
 st.markdown("---")
-st.subheader(f"Works Net Price (WNP): ${works_net:.2f}")
-st.caption(f"Calculation: Total Cost (${sum_total_cost:.2f}) x Markup Factor ({markup_factor})")
+st.subheader(f"Works Net Price (WNP): ${wnp:.2f}")
 
-# --- 7. TABLES & WATERFALL ---
-st.subheader("⚙️ TTC Breakdown (Foundry & Machining Rates)")
-ttc_formatting = {col: "${:.2f}" for col in ["DL RATE", "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"]}
-st.dataframe(ttc_raw.style.format(ttc_formatting), use_container_width=True)
+st.subheader("⚙️ Transformation Details")
+st.dataframe(ttc_raw.style.format({c: "${:.2f}" for c in rate_columns}), use_container_width=True)
 
-st.markdown("---")
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("📦 TMC Breakdown")
+col_a, col_b = st.columns(2)
+with col_a:
+    st.subheader("📦 Material Breakdown")
     st.table(tmc_dynamic.style.format({"COST($)": "${:.2f}"}))
-    
-    st.subheader("🚚 Logistics Breakdown")
+with col_b:
+    st.subheader("🚚 Logistics")
     st.table(log_raw.style.format({"COST": "${:.2f}"}))
 
-with col2:
-    profit_value = works_net - sum_total_cost
-    
-    fig = go.Figure(go.Waterfall(
-        orientation = "v",
-        measure = ["relative", "relative", "relative", "relative", "total"],
-        x = ["TMC", "TTC", "Logistics", "Markup (Profit)", "Works Net"],
-        y = [total_tmc, current_ttc, total_log, profit_value, works_net],
-        connector = {"line":{"color":"#00235e", "width": 2}},
-        decreasing = {"marker":{"color":"#e74c3c"}},
-        increasing = {"marker":{"color":"#2ecc71"}},
-        totals = {"marker":{"color":"#00235e"}}
-    ))
-    st.plotly_chart(fig, use_container_width=True)
+# Waterfall Chart
+fig = go.Figure(go.Waterfall(
+    x = ["TMC", "TTC", "Logistics", "Profit/Markup", "WNP"],
+    y = [total_tmc, current_ttc, total_log, (wnp - total_cost), wnp],
+    measure = ["relative", "relative", "relative", "relative", "total"]
+))
+st.plotly_chart(fig, use_container_width=True)
