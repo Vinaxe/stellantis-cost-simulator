@@ -3,108 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # --- 1. CONFIG & BRANDING ---
-st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    div[data-testid="stMetricValue"] { color: #00235e; font-size: 32px; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. DATA LOADING & CLEANING ---
-# IMPORTANT: Put your CONTROL ARM Google Sheet CSV link here!
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNS4IPz-rmy9-KshbK9LaDDSnhpOi4QotEqUKUC8WcmVod0VwJPExr2TrIJK4kiRzYxTm2M6OArzr9/pub?gid=1638279052&single=true&output=csv"
-
-def clean_currency(value):
-    if pd.isna(value) or value == "": return 0.0
-    s = str(value).replace('$', '').replace('%', '').replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
-    try: return float(s)
-    except: return 0.0
-
-@st.cache_data(ttl=60)
-def load_and_parse():
-    # Reading the file (we simulate it locally, but you will use the URL)
-    df_raw = pd.read_csv(SHEET_URL, header=None)
-    
-    # Weights (Rows 1 and 2)
-    gross_w = clean_currency(df_raw.iloc[1, 1])
-    net_w = clean_currency(df_raw.iloc[2, 1])
-    
-    # TMC - Control Arm starts on Row 6 and goes to 11
-    tmc_df = df_raw.iloc[6:12, [0, 1, 2]]
-    tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
-    
-    # TTC - Control Arm processes start on Row 15 and go to 20
-    ttc_df = df_raw.iloc[15:21, 0:11] 
-    ttc_df.columns = [
-        "PROCESS", "CYCLE TIME", "HEADCOUNT", "DL RATE", 
-        "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"
-    ]
-    
-    # Logistics - Control Arm logistics are on Rows 23 to 25
-    log_df = df_raw.iloc[23:26, [0, 1]]
-    log_df.columns = ["ITEM", "COST"]
-
-    return gross_w, net_w, tmc_df, ttc_df, log_df
-
-try:
-    g_w, n_w, tmc_raw, ttc_raw, log_raw = load_and_parse()
-    
-    # Clean formatting
-    tmc_raw["COST($)"] = tmc_raw["COST($)"].apply(clean_currency)
-    
-    rate_columns = ["DL RATE", "TOTAL DL", "IL RATE", "OVERHEAD", "FC", "VC", "TOTAL RATE", "COST"]
-    for col in rate_columns:
-        ttc_raw[col] = ttc_raw[col].apply(clean_currency)
-        
-    log_raw["COST"] = log_raw["COST"].apply(clean_currency)
-except Exception as e:
-    st.error("Connection Error: Please check the Control Arm Google Sheet URL.")
-    st.stop()
-
-# --- 3. HEADER & WEIGHT DATA ---
-col_logo, col_title = st.columns([1, 4])
-with col_logo:
-    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_855634-MLB75676618058_042024-F.webp", width=150)
-    st.write(f"**Gross Weight:** {g_w} kg")
-    st.write(f"**Net Weight:** {n_w} kg")
-
-with col_title:
-    st.title("⚙️ Lower Control Arm - Works Net Price")
-    st.caption("Strategic Cost Breakdown Analysis | Iron Casting & Assembly")
-
-st.markdown("---")
-
-# --- 4. SIDEBAR SIMULATION ---
-st.sidebar.header("🕹️ Material Variables")
-
-# The biggest cost is the Ball Joint. Let's make a slider for it.
-initial_ball_joint = tmc_raw.iloc[0, 1] 
-ball_joint_cost = st.sidebar.slider("Ball Joint Assembly ($)", 10.0, 25.0, float(initial_ball_joint))
-
-# The second biggest metal cost is Steel Scrap. We use a multiplier.
-steel_scrap_factor = st.sidebar.slider("Steel Scrap Price Inflation (%)", -20, 50, 0)
-
-st.sidebar.header("⚙️ Operational Variables")
-scrap_oee = st.sidebar.slider("Foundry Scrap / OEE Loss (%)", 0.0, 15.0, 5.0)
-efficiency = st.sidebar.slider("Machining Optimization (%)", 0, 30, 0)
-
-st.sidebar.header("📈 Financial Strategy")
-markup_factor = st.sidebar.slider("Markup Factor (AC-DC/PROFIT)", 1.0, 2.0, 1.17, step=0.01)
-
-# --- 5. DYNAMIC CALCULATION ---
-# TMC Logic (Updating Ball Joint and Steel Scrap)
-tmc_dynamic = tmc_raw.copy()
-tmc_dynamic.iloc[0, 1] = ball_joint_cost # Update Ball Joint
-tmc_dynamic.iloc[4, 1] = tmc_dynamic.iloc[4, 1] * (1 + (steel_scrap_factor/100)) # Update Steel Scrap
-
-total_tmc = tmc_dynamic["COST($)"].sum()
-
-# TTC Logic
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-
-# --- 1. CONFIG & BRANDING ---
 st.set_page_config(page_title="Stellantis | T200 Cost Simulator", layout="wide")
 
 st.markdown("""
@@ -167,7 +65,7 @@ except:
 # --- 3. HEADER & WEIGHT DATA ---
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
-    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_908493-MLB105796278454_022026-F.webp", width=150)
+    st.image("https://http2.mlstatic.com/D_NQ_NP_802214-MLB77654495713_072024-O-cabecote-do-motor-t-200-10-turbo-trs-cilindros-2022-2023.webp", width=150)
     st.write(f"**Gross Weight:** {g_w} kg")
     st.write(f"**Net Weight:** {n_w} kg")
 
