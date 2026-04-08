@@ -28,7 +28,7 @@ def load_t200_data():
     n_w = clean_currency(df_raw.iloc[2, 1])
     
     # TMC (Rows 7 to 11)
-    tmc_df = df_raw.iloc[7:12, [0, 1]].copy()
+    tmc_df = df_raw.iloc[7:12, [0, 2]].copy()
     tmc_df.columns = ["MATERIALS", "COST","PP SENSIVITY%"]
     tmc_df["COST"] = tmc_df["COST"].apply(clean_currency)
     
