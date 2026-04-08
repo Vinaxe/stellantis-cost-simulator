@@ -50,12 +50,12 @@ g_w, n_w, tmc_base, ttc_base, log_base = load_t200_data()
 # --- 3. HEADER WITH PART PHOTO ---
 col_logo, col_title, col_img = st.columns([1, 3, 1])
 with col_logo:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Stellantis_logo.svg/1200px-Stellantis_logo.svg.png", width=120)
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Stellantis.svg/960px-Stellantis.svg.png", width=120)
 with col_title:
     st.title("⚙️ T200 Cylinder Head - WNP")
     st.write(f"**Gross Weight:** {g_w} kg | **Net Weight:** {n_w} kg")
 with col_img:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Stellantis.svg/960px-Stellantis.svg.png", width=130, caption="T200 Part")
+    st.image("https://http2.mlstatic.com/D_NQ_NP_2X_802214-MLB77654495713_072024-F.webp", width=130, caption="T200 Part")
 
 st.markdown("---")
 
