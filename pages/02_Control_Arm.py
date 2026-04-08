@@ -28,7 +28,7 @@ def load_and_parse():
     gross_w = clean_currency(df_raw.iloc[1, 1])
     net_w = clean_currency(df_raw.iloc[2, 1])
     
-    # TMC - Rows 7 to 12
+    # TMC - Rows 7 to 14
     tmc_df = df_raw.iloc[7:14, [0, 1, 2]]
     tmc_df.columns = ["MATERIALS", "COST($)", "PP SENSIVITY%"]
     
